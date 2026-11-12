@@ -8,6 +8,8 @@ s = idx.read_text(encoding="utf-8")
 
 s = s.replace("<title>学习总手册</title>",
               "<title>高等数学 · 食品专业贯通学习系统</title>")
+s = s.replace("'<h1>学习总手册</h1>'",
+              "'<h1>高等数学 · 食品专业贯通学习系统</h1>'")
 s = s.replace('<span class="brand">学习总手册<span>点化学习系统 · 统一入口',
               '<span class="brand">高等数学 · 食品专业<span>知枢学习系统 · 统一入口')
 if '<meta name="description"' not in s:
