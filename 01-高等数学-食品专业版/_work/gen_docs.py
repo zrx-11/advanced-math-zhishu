@@ -1,0 +1,615 @@
+#!/usr/bin/env python3
+"""生成 manifest.json 与配套 Markdown（quiz / flashcards / glossary）。
+单一数据源：所有测验、卡片、术语都从这里出，改一处即可同步。
+"""
+import json, os, re
+
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+TITLE = "高等数学 · 食品专业贯通学习系统"
+SUBTITLE = "以教学大纲与食品专业需求为主线：从极限到多元微积分，重点强化基础运算与熟练应用"
+
+CHAPTERS = [
+    dict(id="ch01", title="第 1 章：函数、极限与连续", file="chapters/ch01-函数极限连续.md", difficulty=1,
+         prerequisites=[], source="自编讲义 · 高等数学基础模块"),
+    dict(id="ch02", title="第 2 章：导数与微分", file="chapters/ch02-导数与微分.md", difficulty=2,
+         prerequisites=["ch01"], source="自编讲义 · 一元微分学"),
+    dict(id="ch03", title="第 3 章：微分中值定理与导数的应用", file="chapters/ch03-中值定理与导数应用.md", difficulty=2,
+         prerequisites=["ch02"], source="自编讲义 · 一元微分学"),
+    dict(id="ch04", title="第 4 章：不定积分", file="chapters/ch04-不定积分.md", difficulty=2,
+         prerequisites=["ch02"], source="自编讲义 · 积分学"),
+    dict(id="ch05", title="第 5 章：定积分及其应用", file="chapters/ch05-定积分及其应用.md", difficulty=2,
+         prerequisites=["ch04"], source="自编讲义 · 积分学"),
+    dict(id="ch06", title="第 6 章：微分方程", file="chapters/ch06-微分方程.md", difficulty=3,
+         prerequisites=["ch05", "ch02"], source="自编讲义 · 微分方程"),
+    dict(id="ch07", title="第 7 章：多元函数微分学", file="chapters/ch07-多元函数微分学.md", difficulty=3,
+         prerequisites=["ch03"], source="自编讲义 · 多元微积分"),
+    dict(id="ch08", title="第 8 章：二重积分", file="chapters/ch08-二重积分.md", difficulty=3,
+         prerequisites=["ch07", "ch05"], source="自编讲义 · 多元微积分"),
+    dict(id="ch09", title="第 9 章：无穷级数", file="chapters/ch09-无穷级数.md", difficulty=3,
+         prerequisites=["ch02", "ch01"], source="自编讲义 · 级数"),
+    dict(id="ch10", title="第 10 章：数学实验与误差分析", file="chapters/ch10-数学实验与误差分析.md", difficulty=2,
+         prerequisites=["ch05", "ch06"], source="自编讲义 · 数学实验"),
+]
+
+CONCEPTS = [
+    dict(id="c01", title="函数与复合函数", file="concepts/c01-函数与复合函数.md", chapterIds=["ch01"], difficulty="基础", prerequisites=[]),
+    dict(id="c02", title="数列极限与 ε-N 定义", file="concepts/c02-数列极限.md", chapterIds=["ch01"], difficulty="高难",
+         prerequisites=["c01"], depthFragment="concepts/c02-depth.md"),
+    dict(id="c03", title="函数极限与左右极限", file="concepts/c03-函数极限.md", chapterIds=["ch01"], difficulty="进阶", prerequisites=["c02"]),
+    dict(id="c04", title="无穷小与等价无穷小", file="concepts/c04-等价无穷小.md", chapterIds=["ch01"], difficulty="进阶", prerequisites=["c03"]),
+    dict(id="c05", title="连续与间断点", file="concepts/c05-连续与间断点.md", chapterIds=["ch01"], difficulty="基础", prerequisites=["c03"]),
+    dict(id="c06", title="导数定义与瞬时变化率", file="concepts/c06-导数定义.md", chapterIds=["ch02"], difficulty="进阶", prerequisites=["c05", "c03"]),
+    dict(id="c07", title="链式法则", file="concepts/c07-链式法则.md", chapterIds=["ch02"], difficulty="进阶", prerequisites=["c06"]),
+    dict(id="c08", title="隐函数与参数方程求导", file="concepts/c08-隐函数与参数方程求导.md", chapterIds=["ch02"], difficulty="进阶", prerequisites=["c07"]),
+    dict(id="c09", title="微分与线性近似", file="concepts/c09-微分与线性近似.md", chapterIds=["ch02"], difficulty="基础", prerequisites=["c06"]),
+    dict(id="c10", title="微分中值定理", file="concepts/c10-中值定理.md", chapterIds=["ch03"], difficulty="高难",
+         prerequisites=["c06", "c05"], depthFragment="concepts/c10-depth.md"),
+    dict(id="c11", title="洛必达法则", file="concepts/c11-洛必达法则.md", chapterIds=["ch03"], difficulty="进阶", prerequisites=["c10", "c04"]),
+    dict(id="c12", title="极值与最优化", file="concepts/c12-极值与最优化.md", chapterIds=["ch03", "ch07"], difficulty="进阶", prerequisites=["c10"]),
+    dict(id="c13", title="凹凸性与拐点", file="concepts/c13-凹凸与拐点.md", chapterIds=["ch03"], difficulty="基础", prerequisites=["c06"]),
+    dict(id="c14", title="原函数与不定积分", file="concepts/c14-原函数与不定积分.md", chapterIds=["ch04"], difficulty="基础", prerequisites=["c06"]),
+    dict(id="c15", title="换元积分法", file="concepts/c15-换元积分法.md", chapterIds=["ch04", "ch05"], difficulty="进阶", prerequisites=["c14", "c07"]),
+    dict(id="c16", title="分部积分法", file="concepts/c16-分部积分法.md", chapterIds=["ch04", "ch05"], difficulty="进阶", prerequisites=["c14", "c15"]),
+    dict(id="c17", title="定积分的定义与可积性", file="concepts/c17-定积分定义.md", chapterIds=["ch05", "ch08"], difficulty="高难", prerequisites=["c05", "c04"]),
+    dict(id="c18", title="微积分基本定理", file="concepts/c18-微积分基本定理.md", chapterIds=["ch05"], difficulty="高难",
+         prerequisites=["c17", "c14"], depthFragment="concepts/c18-depth.md"),
+    dict(id="c19", title="微元法", file="concepts/c19-微元法.md", chapterIds=["ch05", "ch08"], difficulty="进阶", prerequisites=["c18"]),
+    dict(id="c20", title="反常积分", file="concepts/c20-反常积分.md", chapterIds=["ch05"], difficulty="进阶", prerequisites=["c18"]),
+    dict(id="c21", title="可分离变量方程", file="concepts/c21-可分离变量方程.md", chapterIds=["ch06"], difficulty="基础", prerequisites=["c14"]),
+    dict(id="c22", title="一阶线性微分方程", file="concepts/c22-一阶线性微分方程.md", chapterIds=["ch06"], difficulty="高难",
+         prerequisites=["c21", "c15"], depthFragment="concepts/c22-depth.md"),
+    dict(id="c23", title="二阶常系数线性微分方程", file="concepts/c23-二阶常系数方程.md", chapterIds=["ch06"], difficulty="高难",
+         prerequisites=["c22"], depthFragment="concepts/c23-depth.md"),
+    dict(id="c24", title="偏导数与全微分", file="concepts/c24-偏导数与全微分.md", chapterIds=["ch07", "ch08"], difficulty="进阶", prerequisites=["c06"]),
+    dict(id="c25", title="多元复合与隐函数求导", file="concepts/c25-多元复合与隐函数.md", chapterIds=["ch07"], difficulty="进阶", prerequisites=["c24", "c07"]),
+    dict(id="c26", title="梯度与方向导数", file="concepts/c26-梯度与方向导数.md", chapterIds=["ch07"], difficulty="进阶", prerequisites=["c24"]),
+    dict(id="c27", title="条件极值与拉格朗日乘数法", file="concepts/c27-条件极值.md", chapterIds=["ch07"], difficulty="高难", prerequisites=["c25", "c26", "c12"]),
+    dict(id="c28", title="二重积分的计算", file="concepts/c28-二重积分计算.md", chapterIds=["ch08"], difficulty="高难", prerequisites=["c17", "c24"]),
+    dict(id="c29", title="级数收敛判别", file="concepts/c29-级数收敛判别.md", chapterIds=["ch09"], difficulty="高难", prerequisites=["c02", "c20"]),
+    dict(id="c30", title="泰勒级数与近似", file="concepts/c30-泰勒级数.md", chapterIds=["ch09", "ch10"], difficulty="高难",
+         prerequisites=["c29", "c06"], depthFragment="concepts/c30-depth.md"),
+    dict(id="c31", title="数值积分与数值微分", file="concepts/c31-数值积分与微分.md", chapterIds=["ch10"], difficulty="进阶", prerequisites=["c18", "c30"]),
+    dict(id="c32", title="最小二乘拟合", file="concepts/c32-最小二乘拟合.md", chapterIds=["ch10"], difficulty="进阶", prerequisites=["c12", "c24"]),
+]
+
+MISCONCEPTIONS = [
+    dict(id="m01", wrong="极限就是函数在该点的取值", correction="极限只看趋近过程，与该点有没有定义、等于几无关"),
+    dict(id="m02", wrong="通项趋于 0 就说明级数收敛", correction="通项趋于 0 只是必要条件，调和级数就是反例"),
+    dict(id="m03", wrong="连续一定可导", correction="连续不一定可导，|x| 在 0 处连续但左右导数不等"),
+    dict(id="m04", wrong="极值点一定是导数为 0 的驻点", correction="极值点也可能出现在导数不存在处，如 |x| 在 0 处"),
+    dict(id="m05", wrong="定积分就是面积", correction="定积分是有向面积，x 轴下方部分要带负号"),
+    dict(id="m06", wrong="极坐标下面积元是 dr dθ", correction="面积元是 r dr dθ，漏掉 r 结果必错"),
+    dict(id="m07", wrong="步长越小数值结果一定越准", correction="步长过小会放大浮点相减误差，存在最优步长区间"),
+    dict(id="m08", wrong="不定积分写出一个原函数就够了", correction="不定积分是一族函数，必须加积分常数 C"),
+    dict(id="m09", wrong="洛必达法则什么极限都能用", correction="只适用于 0/0 或 ∞/∞ 型，且导数之比极限存在"),
+    dict(id="m10", wrong="拟合的 R² 越高，模型就越正确", correction="R² 只衡量拟合程度，不保证模型有物理意义或外推可靠"),
+]
+
+QUIZZES = [
+    # ---------------- ch01 ----------------
+    dict(id="q01", chapterId="ch01", type="single", relatedConceptId="c04",
+         question="lim(x→0) sin3x / x 等于多少？",
+         options=["0", "1", "3", "不存在"], answer=2,
+         explain="x→0 时 sin3x ~ 3x，所以比值为 3。等价无穷小替换只对乘除因子有效，这里正好是乘除结构。",
+         optionMisconceptions=["", "", "", "m01"]),
+    dict(id="q02", chapterId="ch01", type="single", relatedConceptId="c05",
+         question="f(x)=(x²-1)/(x-1) 在 x=1 处属于哪类间断点？",
+         options=["连续点", "可去间断点", "跳跃间断点", "无穷间断点"], answer=1,
+         explain="化简后 f(x)=x+1（x≠1），极限为 2，但函数在 1 处无定义，补上定义即可连续，属可去间断。",
+         optionMisconceptions=["m03", "", "", ""]),
+    dict(id="q03", chapterId="ch01", type="single", relatedConceptId="c03",
+         question="lim(x→∞) (1+2/x)^x 等于多少？",
+         options=["e", "e²", "2e", "1"], answer=1,
+         explain="令 t=2/x，则 (1+t)^(2/t)=[(1+t)^(1/t)]²→e²。第二个重要极限的变形。"),
+    dict(id="q04", chapterId="ch01", type="single", relatedConceptId="c04",
+         question="当 x→0 时，下列哪个是无穷小？",
+         options=["sin x / x", "1-cos x", "e^x", "ln(1+x)/x"], answer=1,
+         explain="1-cos x→0，且与 x²/2 等价；sin x/x→1，e^x→1，ln(1+x)/x→1，极限都不是 0。"),
+    dict(id="q05", chapterId="ch01", type="blank", relatedConceptId="c01",
+         question="某菌液初始 500 CFU/mL，每 30 min 翻一倍。2 h 后的菌数是 ____ CFU/mL。",
+         options=[], answer="8000",
+         explain="N(t)=500·2^(t/30)，t=120 时指数为 4，500×16=8000。"),
+
+    # ---------------- ch02 ----------------
+    dict(id="q06", chapterId="ch02", type="single", relatedConceptId="c07",
+         question="y=x³ln x 的导数是？",
+         options=["3x²ln x", "x²", "3x²ln x + x²", "3x² + 1/x"], answer=2,
+         explain="乘积法则：(x³)'ln x + x³(ln x)' = 3x²ln x + x³·(1/x) = 3x²ln x + x²。"),
+    dict(id="q07", chapterId="ch02", type="single", relatedConceptId="c06",
+         question="f(x)=|x| 在 x=0 处是什么情况？",
+         options=["可导且导数为 0", "连续但不可导", "不连续", "可导且导数为 1"], answer=1,
+         explain="函数连续；左导数 -1、右导数 1，左右不等，所以不可导。可导必连续，连续不一定可导。",
+         optionMisconceptions=["m03", "", "", ""]),
+    dict(id="q08", chapterId="ch02", type="single", relatedConceptId="c09",
+         question="用微分近似，√1.02 约等于？",
+         options=["1.02", "1.01", "1.005", "1.2"], answer=1,
+         explain="f(x)=√x，f'(1)=1/2，Δx=0.02，f≈1+0.5×0.02=1.01。实际 1.00995。"),
+    dict(id="q09", chapterId="ch02", type="single", relatedConceptId="c08",
+         question="圆 x²+y²=25 在点 (3,4) 处的切线斜率是？",
+         options=["3/4", "-3/4", "-4/3", "4/3"], answer=1,
+         explain="两边求导 2x+2yy'=0，y'=-x/y=-3/4。"),
+    dict(id="q10", chapterId="ch02", type="single", relatedConceptId="c09",
+         question="半径 r=10 cm，测量误差 ±0.2 cm，圆面积 S=πr² 的相对误差约为？",
+         options=["2%", "4%", "0.4%", "20%"], answer=1,
+         explain="ΔS≈S'(r)Δr=2πrΔr，相对误差 ΔS/S=2Δr/r=2×2%=4%。平方关系把相对误差放大一倍。"),
+
+    # ---------------- ch03 ----------------
+    dict(id="q11", chapterId="ch03", type="single", relatedConceptId="c12",
+         question="f(x)=x³-3x 的极大值是？",
+         options=["-2", "2", "0", "1"], answer=1,
+         explain="f'=3(x-1)(x+1)，x=-1 处由增变减，极大值 f(-1)=-1+3=2。",
+         optionMisconceptions=["m04", "", "", ""]),
+    dict(id="q12", chapterId="ch03", type="single", relatedConceptId="c11",
+         question="lim(x→0)(e^x-1-x)/x² 等于？",
+         options=["0", "1", "1/2", "不存在"], answer=2,
+         explain="0/0 型，两次洛必达：(e^x-1)/2x → e^x/2 → 1/2。"),
+    dict(id="q13", chapterId="ch03", type="single", relatedConceptId="c13",
+         question="f(x)=x³ 的拐点是？",
+         options=["(0,0)", "(1,1)", "(-1,-1)", "没有拐点"], answer=0,
+         explain="f''=6x，x<0 时小于 0，x>0 时大于 0，两侧变号，(0,0) 是拐点。"),
+    dict(id="q14", chapterId="ch03", type="single", relatedConceptId="c12",
+         question="周长 20 cm 的矩形，最大面积是多少？",
+         options=["20 cm²", "24 cm²", "25 cm²", "30 cm²"], answer=2,
+         explain="设边长 x、y，2x+2y=20，S=xy≤((x+y)/2)²=25，x=y=5 时取到。"),
+    dict(id="q15", chapterId="ch03", type="single", relatedConceptId="c10",
+         question="拉格朗日中值定理的结论是？",
+         options=["f(b)-f(a)=f'(ξ)(b-a)", "f'(ξ)=0", "f(b)=f(a)", "f'在[a,b]连续"], answer=0,
+         explain="区间平均变化率等于区间内某点的瞬时变化率；f'(ξ)=0 是罗尔定理的结论。"),
+
+    # ---------------- ch04 ----------------
+    dict(id="q16", chapterId="ch04", type="single", relatedConceptId="c15",
+         question="∫x e^(x²) dx 等于？",
+         options=["e^(x²)+C", "(1/2)e^(x²)+C", "2e^(x²)+C", "(1/2)e^(2x)+C"], answer=1,
+         explain="凑微分：d(x²)=2x dx，原式=1/2∫e^u du=1/2 e^(x²)+C。"),
+    dict(id="q17", chapterId="ch04", type="single", relatedConceptId="c16",
+         question="∫x ln x dx 等于？",
+         options=["(x²/2)ln x+C", "x ln x - x + C", "(x²/2)ln x - x²/4 + C", "(x²/4)ln x + C"], answer=2,
+         explain="分部积分，u=ln x，dv=x dx：uv-∫v du=(x²/2)ln x-∫x/2 dx=(x²/2)ln x-x²/4+C。"),
+    dict(id="q18", chapterId="ch04", type="single", relatedConceptId="c14",
+         question="∫dx/x 等于？",
+         options=["ln x + C", "ln|x| + C", "1/x² + C", "x ln x + C"], answer=1,
+         explain="x<0 时 ln x 无定义，必须加绝对值。求导验证：(ln|x|)'=1/x。",
+         optionMisconceptions=["", "m08", "", ""]),
+    dict(id="q19", chapterId="ch04", type="single", relatedConceptId="c15",
+         question="∫(3x-1)^4 dx 等于？",
+         options=["(3x-1)^5+C", "(3x-1)^5/5+C", "(3x-1)^5/15+C", "4(3x-1)^3+C"], answer=2,
+         explain="d(3x-1)=3dx，先补 1/3，再套幂函数积分：1/3·(3x-1)^5/5=(3x-1)^5/15+C。"),
+    dict(id="q20", chapterId="ch04", type="single", relatedConceptId="c14",
+         question="下列函数中，原函数不能用初等函数表示的是？",
+         options=["x²", "sin x", "e^(-x²)", "1/(1+x²)"], answer=2,
+         explain="e^(-x²) 的原函数不是初等函数，实际计算要用数值积分；其余三个都能直接积。"),
+
+    # ---------------- ch05 ----------------
+    dict(id="q21", chapterId="ch05", type="single", relatedConceptId="c18",
+         question="∫₀¹ x² dx 等于？",
+         options=["1/3", "1/2", "1", "1/4"], answer=0,
+         explain="原函数 x³/3，代 1 与 0 相减得 1/3。"),
+    dict(id="q22", chapterId="ch05", type="single", relatedConceptId="c20",
+         question="下列反常积分收敛的是？",
+         options=["∫₁→∞ dx/x", "∫₁→∞ dx/x²", "∫₀¹ dx/x", "∫₁→∞ x dx"], answer=1,
+         explain="p 积分判据：p=2>1 收敛；p=1 发散；∫₀¹ dx/x 也发散；∫x dx 发散。"),
+    dict(id="q23", chapterId="ch05", type="single", relatedConceptId="c19",
+         question="y=x 与 y=x² 在 [0,1] 之间围成的面积是？",
+         options=["1/3", "1/6", "1/2", "1"], answer=1,
+         explain="∫₀¹(x-x²)dx=1/2-1/3=1/6。"),
+    dict(id="q24", chapterId="ch05", type="single", relatedConceptId="c19",
+         question="y=√x 在 [0,1] 上绕 x 轴旋转所得体积是？",
+         options=["π/4", "π/2", "π", "2π"], answer=1,
+         explain="V=π∫₀¹(√x)²dx=π∫₀¹x dx=π/2。"),
+    dict(id="q25", chapterId="ch05", type="single", relatedConceptId="c17",
+         question="定积分的几何意义是？",
+         options=["曲线长度", "有向面积", "切线斜率", "平均变化率"], answer=1,
+         explain="x 轴上方面积记正、下方记负，所以是有向面积；∫_{-1}^{1}x dx=0 就是左右抵消的例子。",
+         optionMisconceptions=["", "m05", "", ""]),
+
+    # ---------------- ch06 ----------------
+    dict(id="q26", chapterId="ch06", type="single", relatedConceptId="c21",
+         question="y'=2xy 的通解是？",
+         options=["y=2x+C", "y=Ce^(2x)", "y=Ce^(x²)", "y=x²+C"], answer=2,
+         explain="分离变量：dy/y=2x dx，积分得 ln|y|=x²+C，y=Ce^(x²)。"),
+    dict(id="q27", chapterId="ch06", type="single", relatedConceptId="c23",
+         question="y''-5y'+6y=0 的通解是？",
+         options=["C₁e^(-2x)+C₂e^(-3x)", "C₁e^(2x)+C₂e^(3x)", "(C₁+C₂x)e^(2x)", "C₁cos2x+C₂sin3x"], answer=1,
+         explain="特征方程 r²-5r+6=0，r=2,3，两个不等实根。"),
+    dict(id="q28", chapterId="ch06", type="single", relatedConceptId="c21",
+         question="90 ℃ 牛奶在 20 ℃ 房间冷却，10 min 后 60 ℃，冷却系数 k 约为？",
+         options=["0.016/min", "0.056/min", "0.56/min", "0.0056/min"], answer=1,
+         explain="70e^(-10k)=40，e^(-10k)=4/7，k=ln(7/4)/10≈0.056/min。"),
+    dict(id="q29", chapterId="ch06", type="single", relatedConceptId="c22",
+         question="y'+2y=4，y(0)=0 的特解是？",
+         options=["y=2e^(-2x)", "y=2(1-e^(-2x))", "y=4(1-e^(-x))", "y=2+e^(-2x)"], answer=1,
+         explain="积分因子 e^(2x)，(ye^(2x))'=4e^(2x)，y=2+Ce^(-2x)，初值得 C=-2。"),
+    dict(id="q30", chapterId="ch06", type="single", relatedConceptId="c23",
+         question="二阶常系数方程特征方程为重根 r 时，通解是？",
+         options=["C₁e^(rx)", "(C₁+C₂x)e^(rx)", "C₁cos rx+C₂sin rx", "C₁e^(rx)+C₂e^(-rx)"], answer=1,
+         explain="重根时两个线性无关解是 e^(rx) 与 xe^(rx)，通解为 (C₁+C₂x)e^(rx)。"),
+
+    # ---------------- ch07 ----------------
+    dict(id="q31", chapterId="ch07", type="single", relatedConceptId="c24",
+         question="z=x²y+sin(xy) 的 ∂z/∂x 是？",
+         options=["x²+ycos(xy)", "2xy+xcos(xy)", "2xy+ycos(xy)", "2xy+cos(xy)"], answer=2,
+         explain="对 x 求偏导时 y 当常数：x²y→2xy，sin(xy)→ycos(xy)。"),
+    dict(id="q32", chapterId="ch07", type="single", relatedConceptId="c24",
+         question="z=x²+y²-2x-4y 的极小值点是？",
+         options=["(0,0)", "(1,2)", "(2,4)", "(-1,-2)"], answer=1,
+         explain="z_x=2x-2=0，z_y=2y-4=0，驻点 (1,2)；A=2>0，Δ=4>0，极小。"),
+    dict(id="q33", chapterId="ch07", type="single", relatedConceptId="c26",
+         question="f=x²+y² 在点 (1,2) 处梯度的模是？",
+         options=["2", "4", "√20", "5"], answer=2,
+         explain="∇f=(2x,2y)=(2,4)，模 √(4+16)=√20≈4.47。最大方向导数等于梯度模。"),
+    dict(id="q34", chapterId="ch07", type="single", relatedConceptId="c27",
+         question="拉格朗日乘数法构造的方程组是？",
+         options=["f_x=0, f_y=0", "f_x+λg_x=0, f_y+λg_y=0, g=0", "g_x=0, g_y=0", "f_x=g_x, f_y=g_y"], answer=1,
+         explain="对 L=f+λg 分别求 x、y、λ 的偏导并令其为 0，第三个方程就是约束本身。"),
+    dict(id="q35", chapterId="ch07", type="single", relatedConceptId="c27",
+         question="周长固定的矩形中，面积最大的是？",
+         options=["长宽比 2:1", "正方形", "长宽比 3:2", "越扁越好"], answer=1,
+         explain="2x+2y=L，S=xy≤((x+y)/2)²，等号在 x=y 时成立，即正方形。"),
+
+    # ---------------- ch08 ----------------
+    dict(id="q36", chapterId="ch08", type="single", relatedConceptId="c28",
+         question="∬_D (x+y)dσ，D:0≤x≤1，0≤y≤2，等于？",
+         options=["1", "2", "3", "4"], answer=2,
+         explain="∫₀¹dx∫₀²(x+y)dy=∫₀¹(2x+2)dx=[x²+2x]₀¹=3。"),
+    dict(id="q37", chapterId="ch08", type="single", relatedConceptId="c28",
+         question="极坐标下的面积元是？",
+         options=["dr dθ", "r dr dθ", "r² dr dθ", "dr dθ / r"], answer=1,
+         explain="坐标变换的雅可比行列式为 r，所以 dσ=r dr dθ，漏掉 r 是最常见的错误。",
+         optionMisconceptions=["", "", "", "m06"]),
+    dict(id="q38", chapterId="ch08", type="single", relatedConceptId="c28",
+         question="∬_D 1 dσ，D 为 x²+y²≤4，等于？",
+         options=["2π", "4π", "8π", "π"], answer=1,
+         explain="被积函数为 1 时积分就是区域面积，半径 2 的圆面积为 π×2²=4π。"),
+    dict(id="q39", chapterId="ch08", type="single", relatedConceptId="c28",
+         question="∫₀¹dx∫_x¹ e^(-y²)dy 换序后等于？",
+         options=["1-e^(-1)", "(1-e^(-1))/2", "e^(-1)", "1/2"], answer=1,
+         explain="区域为 0≤x≤y≤1，换序后 ∫₀¹dy∫₀^y e^(-y²)dx=∫₀¹y e^(-y²)dy=(1-e^(-1))/2。"),
+    dict(id="q40", chapterId="ch08", type="single", relatedConceptId="c28",
+         question="f≥0 时，二重积分的几何意义是？",
+         options=["平面区域面积", "曲顶柱体体积", "曲线弧长", "旋转体体积"], answer=1,
+         explain="以 D 为底、z=f(x,y) 为顶的曲顶柱体体积；f=1 时才退化成区域面积。"),
+
+    # ---------------- ch09 ----------------
+    dict(id="q41", chapterId="ch09", type="single", relatedConceptId="c29",
+         question="Σ 1/n² 的敛散性是？",
+         options=["收敛", "发散", "条件收敛", "无法判断"], answer=0,
+         explain="p 级数，p=2>1，收敛（和为 π²/6≈1.6449）。"),
+    dict(id="q42", chapterId="ch09", type="single", relatedConceptId="c29",
+         question="Σ(-1)^(n-1)/n 属于？",
+         options=["绝对收敛", "发散", "条件收敛", "和为 1"], answer=2,
+         explain="本身由莱布尼茨判别收敛（和为 ln2），但绝对值级数 Σ1/n 发散，所以是条件收敛。",
+         optionMisconceptions=["", "", "", "m02"]),
+    dict(id="q43", chapterId="ch09", type="single", relatedConceptId="c29",
+         question="Σ x^n/n! 的收敛半径是？",
+         options=["0", "1", "e", "+∞"], answer=3,
+         explain="比值 |a_n/a_{n+1}|=n+1→∞，收敛半径无穷，对一切 x 收敛。"),
+    dict(id="q44", chapterId="ch09", type="single", relatedConceptId="c30",
+         question="用泰勒展开（取到 x³ 项）计算 e^0.1，结果是？",
+         options=["1.1", "1.105", "1.105167", "1.2"], answer=2,
+         explain="1+0.1+0.01/2+0.001/6=1.105167，真实值 1.1051702，误差约 3.5×10⁻⁶。"),
+    dict(id="q45", chapterId="ch09", type="single", relatedConceptId="c29",
+         question="通项趋于 0 但级数发散的例子是？",
+         options=["Σ1/n²", "Σ1/2^n", "Σ1/n", "Σ1/n!"], answer=2,
+         explain="调和级数通项 1/n→0，但部分和 ~ln n 发散，说明通项趋于 0 只是必要条件。",
+         optionMisconceptions=["", "", "", "m02"]),
+
+    # ---------------- ch10 ----------------
+    dict(id="q46", chapterId="ch10", type="single", relatedConceptId="c31",
+         question="中心差商近似导数的误差阶是？",
+         options=["O(h)", "O(h²)", "O(h³)", "O(1)"], answer=1,
+         explain="中心差商 (f(x+h)-f(x-h))/2h 的截断误差为 O(h²)，比向前差商高一阶。"),
+    dict(id="q47", chapterId="ch10", type="single", relatedConceptId="c31",
+         question="0.03050 的有效数字位数是？",
+         options=["3 位", "4 位", "5 位", "6 位"], answer=1,
+         explain="从第一个非零数字 3 起算，3、0、5、0 共四位，末尾的 0 也有效。"),
+    dict(id="q48", chapterId="ch10", type="single", relatedConceptId="c32",
+         question="拟合的 R²=0.99 说明什么？",
+         options=["模型一定正确", "拟合程度高，但不保证模型有物理意义", "数据没有误差", "可以随意外推"], answer=1,
+         explain="R² 只衡量点离曲线多近，过拟合也能得到高 R²；模型正确性和外推可靠性要另行判断。",
+         optionMisconceptions=["", "", "", "m10"]),
+    dict(id="q49", chapterId="ch10", type="single", relatedConceptId="c32",
+         question="对 y=Ce^(kx) 做最小二乘拟合，通常先做什么？",
+         options=["直接对 y 线性拟合", "两边取对数化成线性", "对 x 取平方", "先求导"], answer=1,
+         explain="ln y=ln C+kx，化成线性后可用最小二乘；直接对 y 拟合权重不对，误差分布被扭曲。"),
+    dict(id="q50", chapterId="ch10", type="single", relatedConceptId="c31",
+         question="用感量 0.0001 g 的天平称得 2.0034 g，结果应记为？",
+         options=["2.0 g", "2.00 g", "2.003 g", "2.0034 g"], answer=3,
+         explain="天平读到小数点后四位，结果应保留四位小数 2.0034 g；多写或少写都不符合测量精度。"),
+
+    # ---------------- 综合 ----------------
+    dict(id="q51", chapterId="__all", type="single", relatedConceptId="c18",
+         question="牛顿—莱布尼茨公式把定积分转化为什么运算？",
+         options=["求极限", "求原函数后代端点相减", "数值求和", "求导数"], answer=1,
+         explain="∫_a^b f dx=F(b)-F(a)，把分割求和取极限换成求原函数、代端点，是微积分基本定理的直接结果。"),
+    dict(id="q52", chapterId="__all", type="single", relatedConceptId="c22",
+         question="一阶线性方程 y'+P(x)y=Q(x) 的关键技巧是？",
+         options=["分离变量", "乘积分因子 e^(∫Pdx)", "令 u=y/x", "猜 y=e^(rx)"], answer=1,
+         explain="乘积分因子后左边变成 (yμ)'，两边积分即可；分离变量对含 P(x)y 的和式无效。"),
+    dict(id="q53", chapterId="__all", type="single", relatedConceptId="c28",
+         question="圆域上的二重积分优先用哪种坐标？",
+         options=["直角坐标", "极坐标", "球坐标", "柱坐标"], answer=1,
+         explain="圆域、圆环、扇形用极坐标，边界变成 r 的常数或 θ 的常数，积分限简单；注意面积元多一个 r。"),
+    dict(id="q54", chapterId="__all", type="single", relatedConceptId="c29",
+         question="正项级数用比值判别得 L=1 时，应该？",
+         options=["判定收敛", "判定发散", "换比较或积分判别", "直接求和"], answer=2,
+         explain="L=1 时比值判别失效，必须换方法；调和级数与 p=2 级数都会给出 L=1，但敛散相反。"),
+    dict(id="q55", chapterId="__all", type="single", relatedConceptId="c09",
+         question="pH 读数 4.20±0.05，氢离子浓度的相对误差约为？",
+         options=["5%", "11.5%", "0.05%", "50%"], answer=1,
+         explain="c=10^(-pH)，dc/c=-ln10·dpH，相对误差约 ln10×0.05=0.115，即 11.5%。"),
+    dict(id="q56", chapterId="__all", type="multi", relatedConceptId="c06",
+         question="下列关于可导与连续的说法，正确的有？",
+         options=["可导必连续", "连续不一定可导", "连续必可导", "可导不一定连续"], answer=[0, 1],
+         explain="可导是更强的条件：可导推出连续；|x| 在 0 处连续但不可导，所以连续不一定可导。"),
+]
+
+CARDS = [
+    # ch01
+    dict(id="f01", chapterId="ch01", front="极限存在与函数在该点是否有定义有关系吗？", back="没有关系。极限只看趋近过程，函数在该点可以无定义。", tags=["极限"]),
+    dict(id="f02", chapterId="ch01", front="极限存在的充要条件（左右极限）", back="左极限与右极限都存在且相等。", tags=["极限"]),
+    dict(id="f03", chapterId="ch01", front="x→0 时 1-cos x 的等价无穷小", back="x²/2。", tags=["无穷小"]),
+    dict(id="f04", chapterId="ch01", front="两个重要极限", back="lim sinx/x=1（x→0）；lim(1+1/x)^x=e（x→∞）。", tags=["极限"]),
+    dict(id="f05", chapterId="ch01", front="连续的三个条件", back="有定义、极限存在、极限值等于函数值。", tags=["连续"]),
+    dict(id="f06", chapterId="ch01", front="间断点四类", back="可去、跳跃、无穷、振荡。", tags=["连续"]),
+    # ch02
+    dict(id="f07", chapterId="ch02", front="导数的定义式", back="f'(x0)=lim(Δx→0)[f(x0+Δx)-f(x0)]/Δx。", tags=["导数"]),
+    dict(id="f08", chapterId="ch02", front="可导与连续的关系", back="可导必连续，连续不一定可导（如 |x| 在 0 处）。", tags=["导数"]),
+    dict(id="f09", chapterId="ch02", front="链式法则", back="(f(g(x)))'=f'(g(x))g'(x)。", tags=["求导"]),
+    dict(id="f10", chapterId="ch02", front="隐函数求导的基本做法", back="两边对 x 求导，遇到 y 乘一个 y'，再解出 y'。", tags=["求导"]),
+    dict(id="f11", chapterId="ch02", front="微分的定义", back="dy=f'(x)dx，是函数改变量的线性主部。", tags=["微分"]),
+    dict(id="f12", chapterId="ch02", front="相对误差传递公式", back="Δy/y≈|f'(x)/f(x)|Δx，平方关系会把相对误差放大一倍。", tags=["误差"]),
+    # ch03
+    dict(id="f13", chapterId="ch03", front="罗尔定理的三个条件", back="闭区间连续、开区间可导、两端函数值相等。", tags=["中值定理"]),
+    dict(id="f14", chapterId="ch03", front="拉格朗日中值定理的公式", back="f(b)-f(a)=f'(ξ)(b-a)，ξ∈(a,b)。", tags=["中值定理"]),
+    dict(id="f15", chapterId="ch03", front="洛必达法则的适用类型", back="0/0 或 ∞/∞ 型，且导数之比的极限存在。", tags=["极限"]),
+    dict(id="f16", chapterId="ch03", front="极值的第一充分条件", back="f' 在 x0 两侧变号：左正右负极大，左负右正极小。", tags=["极值"]),
+    dict(id="f17", chapterId="ch03", front="拐点的判定", back="f''=0 或不存在，且两侧 f'' 变号。", tags=["凹凸"]),
+    dict(id="f18", chapterId="ch03", front="闭区间求最值的步骤", back="算所有驻点、不可导点和端点的函数值，比较大小。", tags=["极值"]),
+    # ch04
+    dict(id="f19", chapterId="ch04", front="不定积分为什么必须加 C", back="原函数不唯一，任意两个原函数相差一个常数。", tags=["积分"]),
+    dict(id="f20", chapterId="ch04", front="∫dx/x 的结果", back="ln|x|+C，不是 ln x+C。", tags=["积分"]),
+    dict(id="f21", chapterId="ch04", front="第一类换元法的核心", back="凑微分：把 f(φ(x))φ'(x)dx 写成 f(u)du。", tags=["积分"]),
+    dict(id="f22", chapterId="ch04", front="第二类换元常用三角代换", back="√(a²-x²)令x=a sin t；√(a²+x²)令x=a tan t；√(x²-a²)令x=a sec t。", tags=["积分"]),
+    dict(id="f23", chapterId="ch04", front="分部积分公式与选 u 顺序", back="∫u dv=uv-∫v du；u 按对数、反三角、代数、三角、指数排序优先。", tags=["积分"]),
+    dict(id="f24", chapterId="ch04", front="∫x e^x dx 的结果", back="(x-1)e^x+C。", tags=["积分"]),
+    # ch05
+    dict(id="f25", chapterId="ch05", front="定积分的四步构造", back="分割、近似、求和、取极限。", tags=["定积分"]),
+    dict(id="f26", chapterId="ch05", front="微积分基本定理", back="Φ(x)=∫_a^x f(t)dt 的导数为 f(x)。", tags=["定积分"]),
+    dict(id="f27", chapterId="ch05", front="牛顿—莱布尼茨公式", back="∫_a^b f dx=F(b)-F(a)，F 是 f 的任一原函数。", tags=["定积分"]),
+    dict(id="f28", chapterId="ch05", front="p 积分收敛条件", back="∫_1^∞ x^(-p) 在 p>1 收敛；∫_0^1 x^(-p) 在 p<1 收敛。", tags=["反常积分"]),
+    dict(id="f29", chapterId="ch05", front="旋转体体积公式", back="V=π∫_a^b f²(x)dx（绕 x 轴）。", tags=["应用"]),
+    dict(id="f30", chapterId="ch05", front="函数在区间上的平均值", back="f̄=1/(b-a)∫_a^b f dx。", tags=["应用"]),
+    # ch06
+    dict(id="f31", chapterId="ch06", front="可分离变量方程的做法", back="把含 y 的移到 dy 一侧、含 x 的移到 dx 一侧，两边积分。", tags=["微分方程"]),
+    dict(id="f32", chapterId="ch06", front="牛顿冷却定律的解", back="T=Tm+Ce^(-kt)，C=T0-Tm。", tags=["微分方程"]),
+    dict(id="f33", chapterId="ch06", front="一阶线性方程的通解公式", back="y=e^(-∫P)[∫Qe^(∫P)dx+C]。", tags=["微分方程"]),
+    dict(id="f34", chapterId="ch06", front="二阶常系数齐次方程三种情形", back="两个不等实根、重根、共轭复根，对应三种通解形式。", tags=["微分方程"]),
+    dict(id="f35", chapterId="ch06", front="逻辑斯蒂增长的解", back="N=K/[1+(K/N0-1)e^(-rt)]。", tags=["微分方程"]),
+    dict(id="f36", chapterId="ch06", front="非齐次方程的通解结构", back="齐次方程通解 + 非齐次方程的一个特解。", tags=["微分方程"]),
+    # ch07
+    dict(id="f37", chapterId="ch07", front="偏导数的求法", back="对一个变量求导，其余变量当常数。", tags=["多元"]),
+    dict(id="f38", chapterId="ch07", front="全微分公式", back="dz=f_x dx+f_y dy。", tags=["多元"]),
+    dict(id="f39", chapterId="ch07", front="多元复合函数链式法则", back="每条路径偏导相乘，不同路径相加。", tags=["多元"]),
+    dict(id="f40", chapterId="ch07", front="隐函数 z(x,y) 的偏导公式", back="z_x=-F_x/F_z，z_y=-F_y/F_z。", tags=["多元"]),
+    dict(id="f41", chapterId="ch07", front="梯度的两个结论", back="方向导数在梯度方向最大，最大值等于 |∇f|。", tags=["多元"]),
+    dict(id="f42", chapterId="ch07", front="拉格朗日乘数法的构造", back="L=f+λg，令 L 对 x、y、λ 的偏导为 0。", tags=["多元"]),
+    # ch08
+    dict(id="f43", chapterId="ch08", front="二重积分的几何意义", back="f≥0 时是以 D 为底、z=f 为顶的曲顶柱体体积。", tags=["二重积分"]),
+    dict(id="f44", chapterId="ch08", front="极坐标的面积元", back="dσ=r dr dθ，别漏掉 r。", tags=["二重积分"]),
+    dict(id="f45", chapterId="ch08", front="交换积分次序的第一步", back="画出积分区域，按另一个方向重新确定上下限。", tags=["二重积分"]),
+    dict(id="f46", chapterId="ch08", front="面密度求总质量的公式", back="m=∬_D ρ(x,y)dσ。", tags=["二重积分"]),
+    dict(id="f47", chapterId="ch08", front="二重积分的对称性简化", back="区域对称且被积函数为奇函数时积分为 0；偶函数取一半区域的两倍。", tags=["二重积分"]),
+    dict(id="f48", chapterId="ch08", front="单位圆盘上 ∬e^(-(x²+y²))dσ 的结果", back="π(1-e^(-1))≈1.986。", tags=["二重积分"]),
+    # ch09
+    dict(id="f49", chapterId="ch09", front="级数收敛的必要条件", back="通项趋于 0；但反过来不成立（调和级数）。", tags=["级数"]),
+    dict(id="f50", chapterId="ch09", front="几何级数的和", back="Σaq^(n-1)=a/(1-q)，|q|<1。", tags=["级数"]),
+    dict(id="f51", chapterId="ch09", front="比值判别法", back="lim u_{n+1}/u_n=L：L<1 收敛，L>1 发散，L=1 失效。", tags=["级数"]),
+    dict(id="f52", chapterId="ch09", front="莱布尼茨判别条件", back="交错级数，u_n 单调递减且趋于 0。", tags=["级数"]),
+    dict(id="f53", chapterId="ch09", front="幂级数收敛半径公式", back="R=lim|a_n/a_{n+1}|，端点单独检查。", tags=["级数"]),
+    dict(id="f54", chapterId="ch09", front="e^x 的麦克劳林展开", back="1+x+x²/2!+x³/3!+…，收敛区间全体实数。", tags=["级数"]),
+    # ch10
+    dict(id="f55", chapterId="ch10", front="中心差商公式", back="f'(x)≈[f(x+h)-f(x-h)]/2h，误差 O(h²)。", tags=["数值"]),
+    dict(id="f56", chapterId="ch10", front="数值积分优先用什么", back="MATLAB 的 integral、Python 的 scipy.integrate.quad，自适应步长。", tags=["数值"]),
+    dict(id="f57", chapterId="ch10", front="微分方程数值解的工具", back="MATLAB ode45；Python scipy.integrate.solve_ivp（RK45）。", tags=["数值"]),
+    dict(id="f58", chapterId="ch10", front="最小二乘拟合的指数模型做法", back="两边取对数化成线性，再按线性最小二乘拟合。", tags=["拟合"]),
+    dict(id="f59", chapterId="ch10", front="有效数字从哪一位起算", back="从第一个非零数字起算，末尾的 0 也算有效。", tags=["误差"]),
+    dict(id="f60", chapterId="ch10", front="R² 的含义与局限", back="衡量拟合程度，越接近 1 越贴合；不保证模型有物理意义或外推可靠。", tags=["拟合"]),
+]
+
+GLOSSARY = [
+    ("函数", "输入一个数、按规则输出唯一一个数的对应关系", "ch01"),
+    ("定义域", "自变量允许取值的全体", "ch01"),
+    ("复合函数", "把一个函数的输出作为另一个函数的输入", "ch01"),
+    ("数列", "按顺序排列的一列数", "ch01"),
+    ("极限", "自变量趋近某值时函数值趋近的确定数", "ch01"),
+    ("ε-N 定义", "用任意小正数 ε 和门槛 N 精确描述数列收敛", "ch01"),
+    ("左极限", "自变量从小于该点的一侧趋近时的极限", "ch01"),
+    ("右极限", "自变量从大于该点的一侧趋近时的极限", "ch01"),
+    ("无穷小", "极限为 0 的变量", "ch01"),
+    ("无穷大", "绝对值可以任意大的变量，记作 ∞", "ch01"),
+    ("等价无穷小", "两个无穷小之比的极限为 1", "ch01"),
+    ("连续", "极限值等于函数值", "ch01"),
+    ("可去间断点", "极限存在但函数值不等或没定义", "ch01"),
+    ("跳跃间断点", "左右极限都存在但不相等", "ch01"),
+    ("介值定理", "闭区间连续函数能取到两端函数值之间的任何数", "ch01"),
+    ("零点定理", "闭区间连续且两端异号时区间内必有零点", "ch01"),
+    ("导数", "平均变化率在自变量增量趋于 0 时的极限", "ch02"),
+    ("可导", "导数存在；可导必连续", "ch02"),
+    ("切线", "过曲线上一点、斜率为该点导数的直线", "ch02"),
+    ("高阶导数", "导数的导数，二阶导数记 y''", "ch02"),
+    ("链式法则", "复合函数求导：外层导数乘内层导数", "ch02"),
+    ("隐函数", "没有解出 y、藏在方程 F(x,y)=0 里的函数", "ch02"),
+    ("微分", "函数改变量的线性主部 dy=f'(x)dx", "ch02"),
+    ("误差传递", "测量误差通过函数关系放大或缩小的规律", "ch02"),
+    ("罗尔定理", "两端等高时区间内存在导数为 0 的点", "ch03"),
+    ("拉格朗日中值定理", "平均变化率等于区间内某点的瞬时变化率", "ch03"),
+    ("柯西中值定理", "两个函数变化率之比等于某点导数之比", "ch03"),
+    ("洛必达法则", "0/0 或 ∞/∞ 型极限用导数之比计算", "ch03"),
+    ("驻点", "导数为 0 的点", "ch03"),
+    ("极值", "函数在某点邻域内的最大或最小值", "ch03"),
+    ("拐点", "凹凸性改变的点", "ch03"),
+    ("渐近线", "曲线无限接近的直线", "ch03"),
+    ("原函数", "导数等于给定函数的函数", "ch04"),
+    ("不定积分", "全体原函数，记作 ∫f dx=F+C", "ch04"),
+    ("积分常数", "不定积分中的任意常数 C", "ch04"),
+    ("凑微分", "把被积式写成 f(φ(x))φ'(x)dx 的形式", "ch04"),
+    ("分部积分", "∫u dv=uv-∫v du", "ch04"),
+    ("部分分式", "把有理函数拆成简单分式之和", "ch04"),
+    ("定积分", "分割、近似、求和、取极限得到的有向面积", "ch05"),
+    ("可积", "定积分的极限存在", "ch05"),
+    ("积分上限函数", "Φ(x)=∫_a^x f(t)dt", "ch05"),
+    ("牛顿—莱布尼茨公式", "∫_a^b f dx=F(b)-F(a)", "ch05"),
+    ("反常积分", "无穷区间或无界函数上的积分", "ch05"),
+    ("微元法", "把总量切成微元再积分的方法", "ch05"),
+    ("微分方程", "含未知函数及其导数的方程", "ch06"),
+    ("通解", "含与阶数相同个数的任意常数的解", "ch06"),
+    ("特解", "用初始条件定出常数后的解", "ch06"),
+    ("可分离变量", "能写成 f(x)g(y) 形式的方程", "ch06"),
+    ("积分因子", "使一阶线性方程左边成为乘积导数的因子", "ch06"),
+    ("特征方程", "二阶常系数方程对应的 r²+pr+q=0", "ch06"),
+    ("逻辑斯蒂增长", "有承载上限的增长模型", "ch06"),
+    ("偏导数", "固定其余变量、对一个变量求导", "ch07"),
+    ("全微分", "各偏导乘以对应增量再相加", "ch07"),
+    ("梯度", "偏导数组成的向量，指向增长最快方向", "ch07"),
+    ("方向导数", "沿某方向的变化率，等于梯度与该方向单位向量的点积", "ch07"),
+    ("拉格朗日乘数法", "带约束极值的求解方法", "ch07"),
+    ("二重积分", "平面区域上的分割求和取极限", "ch08"),
+    ("极坐标", "用 r 与 θ 表示平面点的坐标系", "ch08"),
+    ("曲顶柱体", "以平面区域为底、曲面为顶的立体", "ch08"),
+    ("级数", "无穷多个数相加", "ch09"),
+    ("部分和", "前 n 项的和", "ch09"),
+    ("收敛", "部分和数列有极限", "ch09"),
+    ("发散", "部分和数列没有极限", "ch09"),
+    ("绝对收敛", "绝对值级数也收敛", "ch09"),
+    ("条件收敛", "本身收敛但绝对值级数发散", "ch09"),
+    ("幂级数", "形如 Σa_n(x-x0)^n 的级数", "ch09"),
+    ("收敛半径", "幂级数绝对收敛的区间半径", "ch09"),
+    ("泰勒级数", "用各阶导数系数写成的幂级数", "ch09"),
+    ("余项", "泰勒多项式与原函数的差", "ch09"),
+    ("数值微分", "用差商近似导数", "ch10"),
+    ("数值积分", "用求积公式近似定积分", "ch10"),
+    ("梯形公式", "用梯形面积近似积分，误差 O(h²)", "ch10"),
+    ("最小二乘", "使残差平方和最小的拟合方法", "ch10"),
+    ("有效数字", "从第一个非零数字起算的可靠数字", "ch10"),
+    ("修约", "按规则舍入数值", "ch10"),
+]
+
+LEARNING_PATH = [
+    dict(step="01", title="极限地基：函数、极限、连续", chapterIds=["ch01"], checkpoint="能算 0/0 型极限，能判断四类间断点，自测 ≥80%"),
+    dict(step="02", title="导数与微分：变化率语言", chapterIds=["ch02"], checkpoint="能用定义算导数，能套链式法则，能做线性近似"),
+    dict(step="03", title="中值定理与最优化", chapterIds=["ch03"], checkpoint="能证简单不等式，能求单调区间与极值，能解最省料问题"),
+    dict(step="04", title="不定积分：求导的逆运算", chapterIds=["ch04"], checkpoint="能默写基本积分表，能完成换元与分部积分"),
+    dict(step="05", title="定积分：累积量的计算", chapterIds=["ch05"], checkpoint="能算定积分与反常积分，能用微元法求面积体积"),
+    dict(step="06", title="微分方程：从变化规律到过程曲线", chapterIds=["ch06"], checkpoint="能解可分离、一阶线性、二阶常系数方程，能建冷却模型"),
+    dict(step="07", title="多元微分：多参数优化", chapterIds=["ch07"], checkpoint="能求偏导与全微分，能用拉格朗日乘数法解约束优化"),
+    dict(step="08", title="二重积分：平面上的累加", chapterIds=["ch08"], checkpoint="能定限、能换序、能用极坐标算圆域积分"),
+    dict(step="09", title="无穷级数：近似与判别", chapterIds=["ch09"], checkpoint="能判断常见级数敛散，能写泰勒展开并估误差"),
+    dict(step="10", title="数学实验：软件与误差", chapterIds=["ch10"], checkpoint="能跑数值积分与拟合，能正确记录有效数字"),
+]
+
+def build_manifest():
+    m = {
+        "slug": "food-math",
+        "title": TITLE,
+        "subtitle": SUBTITLE,
+        "companion": "food-math学习伴侣.html",
+        "book": {
+            "title": "高等数学（食品专业贯通版）",
+            "author": "知枢课程组（按教学大纲与食品专业需求自编）",
+            "source": ["自编讲义 · 不绑定单一教材", "教学大纲与食品专业后续课程需求"],
+        },
+        "audience": "食品类专业专科起点，零基础到能应用",
+        "goal": "系统掌握一元微积分与微分方程，进阶多元微分、二重积分与级数；能独立完成食品场景中的计算、建模与误差分析",
+        "learningPath": LEARNING_PATH,
+        "chapters": CHAPTERS,
+        "concepts": CONCEPTS,
+        "glossary": [{"term": t, "def": d, "chapterId": ch} for t, d, ch in GLOSSARY],
+        "patterns": {"file": "patterns.md"},
+        "cheatsheet": {"file": "cheatsheet.md"},
+        "quizzes": QUIZZES,
+        "flashcards": CARDS,
+        "misconceptions": MISCONCEPTIONS,
+    }
+    # concepts 的 prerequisites 统一转成带类型的对象
+    for c in m["concepts"]:
+        c["prerequisites"] = [{"id": p, "type": "hard"} for p in c["prerequisites"]]
+
+    # 误解卡只保留"错误选项 + 对应误解"的严格映射，避免答对也弹误解卡
+    allowed = {
+        "q07": ["m03", "", "", ""],
+        "q37": ["m06", "", "", ""],
+        "q48": ["m10", "", "", ""],
+    }
+    for q in m["quizzes"]:
+        q["optionMisconceptions"] = allowed.get(q["id"], [])
+    return m
+
+
+def write_quiz_md(m):
+    lines = ["# 高等数学（食品专业版）测验", "", "> 题目与交互版一致，答案与解析用于纸面复习。", ""]
+    for ch in CHAPTERS:
+        qs = [q for q in m["quizzes"] if q["chapterId"] == ch["id"]]
+        lines += [f"## {ch['title']}（检查点）", ""]
+        for i, q in enumerate(qs, 1):
+            lines.append(f"### Q{i}. {q['question']}")
+            if q["type"] in ("single", "multi") and q.get("options"):
+                for oi, o in enumerate(q["options"]):
+                    lines.append(f"- {chr(65+oi)}. {o}")
+            ans = q["answer"]
+            if isinstance(ans, list):
+                ans_text = "、".join(chr(65 + a) for a in ans)
+            elif q["type"] == "blank":
+                ans_text = str(ans)
+            else:
+                ans_text = chr(65 + ans) if isinstance(ans, int) else str(ans)
+            lines += ["", f"**答案**：{ans_text}", "", f"**解析**：{q['explain']}", ""]
+    allq = [q for q in m["quizzes"] if q["chapterId"] == "__all"]
+    lines += ["## 综合测验（多章联考）", ""]
+    for i, q in enumerate(allq, 1):
+        lines.append(f"### Q{i}. {q['question']}")
+        if q.get("options"):
+            for oi, o in enumerate(q["options"]):
+                lines.append(f"- {chr(65+oi)}. {o}")
+        ans = q["answer"]
+        ans_text = "、".join(chr(65 + a) for a in ans) if isinstance(ans, list) else (chr(65 + ans) if isinstance(ans, int) else str(ans))
+        lines += ["", f"**答案**：{ans_text}", "", f"**解析**：{q['explain']}", ""]
+    lines += ["## 最终检验", "",
+              "选一个你熟悉的食品工艺（冷却、发酵、干燥、货架期任选），完成三件事：",
+              "1. 写出过程变量之间的函数关系或微分方程；",
+              "2. 用积分或解方程算出至少两个关键数值（如 30 min 后温度、半衰期、总损失量）；",
+              "3. 给出误差范围，说明结果保留几位有效数字、依据是什么。",
+              "", "评分要点：模型合理（30%）、计算正确（40%）、误差与单位处理（30%）。", ""]
+    with open(os.path.join(BASE, "quiz.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
+def write_cards_md(m):
+    lines = ["# 高等数学（食品专业版）抽认卡", "", "> 正面只放问题，先自己答，再翻背面。", ""]
+    for ch in CHAPTERS:
+        cs = [c for c in m["flashcards"] if c["chapterId"] == ch["id"]]
+        lines += [f"## {ch['title']}", ""]
+        for c in cs:
+            lines += [f"### 卡片：{c['front']}", f"- **背面**：{c['back']}", f"- **标签**：{', '.join(c['tags'])}", f"- **章节**：{c['chapterId']}", ""]
+    with open(os.path.join(BASE, "flashcards.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
+def write_glossary_md(m):
+    lines = ["# 术语表", "", "| 术语 | 白话定义 | 首次出现 |", "|---|---|---|"]
+    ch_title = {c["id"]: c["title"].split("：", 1)[-1] for c in CHAPTERS}
+    for g in m["glossary"]:
+        lines.append(f"| {g['term']} | {g['def']} | {ch_title.get(g['chapterId'], g['chapterId'])} |")
+    lines.append("")
+    with open(os.path.join(BASE, "glossary.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
+if __name__ == "__main__":
+    m = build_manifest()
+    with open(os.path.join(BASE, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump(m, f, ensure_ascii=False, indent=2)
+    write_quiz_md(m)
+    write_cards_md(m)
+    write_glossary_md(m)
+    print(f"manifest.json: 章节 {len(m['chapters'])} · 概念 {len(m['concepts'])} · 测验 {len(m['quizzes'])} · 卡片 {len(m['flashcards'])} · 术语 {len(m['glossary'])}")

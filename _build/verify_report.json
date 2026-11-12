@@ -1,0 +1,107 @@
+[
+ {
+  "check": "首页渲染",
+  "pass": true,
+  "extra": ""
+ },
+ {
+  "check": "书卡数量",
+  "pass": true,
+  "extra": "1/1"
+ },
+ {
+  "check": "总览页：高等数学 · 食品专业贯通学习总览",
+  "pass": true,
+  "extra": "1323 字符"
+ },
+ {
+  "check": "总览页：综合检验建议",
+  "pass": true,
+  "extra": "1115 字符"
+ },
+ {
+  "check": "food-math 首章渲染",
+  "pass": true,
+  "extra": "5151 字符"
+ },
+ {
+  "check": "food-math 末章渲染",
+  "pass": true,
+  "extra": "4696 字符"
+ },
+ {
+  "check": "food-math 测验题数",
+  "pass": true,
+  "extra": "50 题"
+ },
+ {
+  "check": "food-math 测验正确反馈",
+  "pass": true,
+  "extra": "✓ 正确"
+ },
+ {
+  "check": "food-math 测验解析",
+  "pass": true,
+  "extra": ""
+ },
+ {
+  "check": "抽认卡正面有内容",
+  "pass": true,
+  "extra": "极限存在与函数在该点是否有定义有关系吗？"
+ },
+ {
+  "check": "抽认卡翻转",
+  "pass": true,
+  "extra": ""
+ },
+ {
+  "check": "认识计数增加",
+  "pass": true,
+  "extra": "1"
+ },
+ {
+  "check": "术语表过滤",
+  "pass": true,
+  "extra": "共75 过滤后5（函数）"
+ },
+ {
+  "check": "全局搜索命中",
+  "pass": true,
+  "extra": "39 条"
+ },
+ {
+  "check": "进度跨刷新持久",
+  "pass": true,
+  "extra": "《高等数学 · 食品专业贯通学习系统》 进度 30% · 已学 3/10 章 → 《高等数学 · 食品专业贯通学习系统》 进度 30% · 已学 3/10 章"
+ },
+ {
+  "check": "学习路径完成标记",
+  "pass": true,
+  "extra": ""
+ },
+ {
+  "check": "诊断页可打开",
+  "pass": true,
+  "extra": ""
+ },
+ {
+  "check": "深度片段（本书无，跳过）",
+  "pass": true,
+  "extra": "本书无深度片段"
+ },
+ {
+  "check": "出处脚注存在",
+  "pass": true,
+  "extra": "1 处"
+ },
+ {
+  "check": "深色模式",
+  "pass": true,
+  "extra": ""
+ },
+ {
+  "check": "控制台无错误",
+  "pass": true,
+  "extra": ""
+ }
+]
