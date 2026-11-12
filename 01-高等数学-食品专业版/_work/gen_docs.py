@@ -318,27 +318,27 @@ QUIZZES = [
          explain="天平读到小数点后四位，结果应保留四位小数 2.0034 g；多写或少写都不符合测量精度。"),
 
     # ---------------- 综合 ----------------
-    dict(id="q51", chapterId="__all", type="single", relatedConceptId="c18",
+    dict(id="q51", chapterId="__all__", type="single", relatedConceptId="c18",
          question="牛顿—莱布尼茨公式把定积分转化为什么运算？",
          options=["求极限", "求原函数后代端点相减", "数值求和", "求导数"], answer=1,
          explain="∫_a^b f dx=F(b)-F(a)，把分割求和取极限换成求原函数、代端点，是微积分基本定理的直接结果。"),
-    dict(id="q52", chapterId="__all", type="single", relatedConceptId="c22",
+    dict(id="q52", chapterId="__all__", type="single", relatedConceptId="c22",
          question="一阶线性方程 y'+P(x)y=Q(x) 的关键技巧是？",
          options=["分离变量", "乘积分因子 e^(∫Pdx)", "令 u=y/x", "猜 y=e^(rx)"], answer=1,
          explain="乘积分因子后左边变成 (yμ)'，两边积分即可；分离变量对含 P(x)y 的和式无效。"),
-    dict(id="q53", chapterId="__all", type="single", relatedConceptId="c28",
+    dict(id="q53", chapterId="__all__", type="single", relatedConceptId="c28",
          question="圆域上的二重积分优先用哪种坐标？",
          options=["直角坐标", "极坐标", "球坐标", "柱坐标"], answer=1,
          explain="圆域、圆环、扇形用极坐标，边界变成 r 的常数或 θ 的常数，积分限简单；注意面积元多一个 r。"),
-    dict(id="q54", chapterId="__all", type="single", relatedConceptId="c29",
+    dict(id="q54", chapterId="__all__", type="single", relatedConceptId="c29",
          question="正项级数用比值判别得 L=1 时，应该？",
          options=["判定收敛", "判定发散", "换比较或积分判别", "直接求和"], answer=2,
          explain="L=1 时比值判别失效，必须换方法；调和级数与 p=2 级数都会给出 L=1，但敛散相反。"),
-    dict(id="q55", chapterId="__all", type="single", relatedConceptId="c09",
+    dict(id="q55", chapterId="__all__", type="single", relatedConceptId="c09",
          question="pH 读数 4.20±0.05，氢离子浓度的相对误差约为？",
          options=["5%", "11.5%", "0.05%", "50%"], answer=1,
          explain="c=10^(-pH)，dc/c=-ln10·dpH，相对误差约 ln10×0.05=0.115，即 11.5%。"),
-    dict(id="q56", chapterId="__all", type="multi", relatedConceptId="c06",
+    dict(id="q56", chapterId="__all__", type="multi", relatedConceptId="c06",
          question="下列关于可导与连续的说法，正确的有？",
          options=["可导必连续", "连续不一定可导", "连续必可导", "可导不一定连续"], answer=[0, 1],
          explain="可导是更强的条件：可导推出连续；|x| 在 0 处连续但不可导，所以连续不一定可导。"),
@@ -564,7 +564,7 @@ def write_quiz_md(m):
             else:
                 ans_text = chr(65 + ans) if isinstance(ans, int) else str(ans)
             lines += ["", f"**答案**：{ans_text}", "", f"**解析**：{q['explain']}", ""]
-    allq = [q for q in m["quizzes"] if q["chapterId"] == "__all"]
+    allq = [q for q in m["quizzes"] if q["chapterId"] == "__all__"]
     lines += ["## 综合测验（多章联考）", ""]
     for i, q in enumerate(allq, 1):
         lines.append(f"### Q{i}. {q['question']}")

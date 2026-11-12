@@ -12,7 +12,7 @@
  {
   "check": "总览页：高等数学 · 食品专业贯通学习总览",
   "pass": true,
-  "extra": "1323 字符"
+  "extra": "1335 字符"
  },
  {
   "check": "总览页：综合检验建议",
@@ -32,7 +32,7 @@
  {
   "check": "food-math 测验题数",
   "pass": true,
-  "extra": "50 题"
+  "extra": "56 题"
  },
  {
   "check": "food-math 测验正确反馈",

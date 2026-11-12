@@ -1949,7 +1949,7 @@
     },
     {
       "id": "q51",
-      "chapterId": "__all",
+      "chapterId": "__all__",
       "type": "single",
       "relatedConceptId": "c18",
       "question": "牛顿—莱布尼茨公式把定积分转化为什么运算？",
@@ -1965,7 +1965,7 @@
     },
     {
       "id": "q52",
-      "chapterId": "__all",
+      "chapterId": "__all__",
       "type": "single",
       "relatedConceptId": "c22",
       "question": "一阶线性方程 y'+P(x)y=Q(x) 的关键技巧是？",
@@ -1981,7 +1981,7 @@
     },
     {
       "id": "q53",
-      "chapterId": "__all",
+      "chapterId": "__all__",
       "type": "single",
       "relatedConceptId": "c28",
       "question": "圆域上的二重积分优先用哪种坐标？",
@@ -1997,7 +1997,7 @@
     },
     {
       "id": "q54",
-      "chapterId": "__all",
+      "chapterId": "__all__",
       "type": "single",
       "relatedConceptId": "c29",
       "question": "正项级数用比值判别得 L=1 时，应该？",
@@ -2013,7 +2013,7 @@
     },
     {
       "id": "q55",
-      "chapterId": "__all",
+      "chapterId": "__all__",
       "type": "single",
       "relatedConceptId": "c09",
       "question": "pH 读数 4.20±0.05，氢离子浓度的相对误差约为？",
@@ -2029,7 +2029,7 @@
     },
     {
       "id": "q56",
-      "chapterId": "__all",
+      "chapterId": "__all__",
       "type": "multi",
       "relatedConceptId": "c06",
       "question": "下列关于可导与连续的说法，正确的有？",
